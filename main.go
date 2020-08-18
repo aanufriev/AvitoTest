@@ -1,7 +1,11 @@
 package main
 
 import (
+	"log"
 	"net/http"
+
+	"github.com/aanufriev/AvitoTest/storage"
+	_ "github.com/lib/pq"
 )
 
 type Handler struct{}
@@ -27,6 +31,17 @@ func (h Handler) GetMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	storage := &storage.PostgresStorage{}
+	err := storage.Open("host=127.0.0.1 user=testuser password=test_password dbname=avito sslmode=disable")
+	if err != nil {
+		log.Fatal("can't open database connection: ", err)
+	}
+
+	err = storage.InitDatabase()
+	if err != nil {
+		log.Fatal("can't init database: ", err)
+	}
+
 	handler := &Handler{}
 
 	mux := http.NewServeMux()

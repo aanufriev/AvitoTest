@@ -67,3 +67,37 @@ func (ps PostgresStorage) SaveUser(user *models.User) (int, error) {
 
 	return lastID, nil
 }
+
+func (ps PostgresStorage) checkUser(userID string) bool {
+	user := models.User{}
+
+	row := ps.db.QueryRow(
+		"SELECT * FROM users WHERE id=$1",
+		userID,
+	)
+	switch err := row.Scan(&user.ID, &user.Username, &user.CreatedAt); err {
+	case sql.ErrNoRows:
+		return false
+	case nil:
+		return true
+	default:
+		panic(err)
+	}
+}
+
+func (ps PostgresStorage) checkChat(chatID string) bool {
+	chat := models.Chat{}
+
+	row := ps.db.QueryRow(
+		"SELECT * FROM chats WHERE id=$1",
+		chatID,
+	)
+	switch err := row.Scan(&chat.ID, &chat.Name, &chat.CreatedAt); err {
+	case sql.ErrNoRows:
+		return false
+	case nil:
+		return true
+	default:
+		panic(err)
+	}
+}

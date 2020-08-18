@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/aanufriev/AvitoTest/models"
@@ -49,4 +50,20 @@ func (ps PostgresStorage) InitDatabase() error {
 		return err
 	}
 	return nil
+}
+
+func (ps PostgresStorage) SaveUser(user *models.User) (int, error) {
+	var lastID int
+
+	err := ps.db.QueryRow(
+		"INSERT INTO users (username, created_at) VALUES ($1, $2) RETURNING id",
+		user.Username, user.CreatedAt,
+	).Scan(&lastID)
+
+	if err != nil {
+		return 0, fmt.Errorf("SaveUser error: %s with user: %v", err, user)
+	}
+	user.ID = lastID
+
+	return lastID, nil
 }

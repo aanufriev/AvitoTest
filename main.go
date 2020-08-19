@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -103,7 +104,47 @@ func (h Handler) AddMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handler) GetChats(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err, r.URL)
+			return
+		}
+	}
+	defer r.Body.Close()
 
+	var userID map[string]interface{}
+
+	err = json.Unmarshal(body, &userID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+	id, ok := userID["user"].(string)
+	if !ok {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+
+	chats, err := h.storage.GetChats(id)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+
+	response := make([]byte, 0)
+	for _, chat := range chats {
+		chatJSON, err := chat.MarshalJSON()
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err, r.URL)
+			return
+		}
+		response = append(response, chatJSON...)
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(response)
 }
 
 func (h Handler) GetMessages(w http.ResponseWriter, r *http.Request) {

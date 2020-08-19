@@ -1,17 +1,57 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+	"time"
 
+	"github.com/aanufriev/AvitoTest/models"
 	"github.com/aanufriev/AvitoTest/storage"
 	_ "github.com/lib/pq"
 )
 
-type Handler struct{}
+func writeError(w http.ResponseWriter, status int, err error, u *url.URL) {
+	fmt.Printf("error happend: %+v\nurl: %s\n", err, u)
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(status)
+	errorJSON := fmt.Sprintf(`{"error":"%s"}`, err)
+	w.Write([]byte(errorJSON))
+}
+
+func idAsJSON(id int) []byte {
+	return []byte(fmt.Sprintf(`{"id":"%v"}`, id))
+}
+
+type Handler struct {
+	storage storage.StorageInterface
+}
 
 func (h Handler) AddUser(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+	defer r.Body.Close()
 
+	user := &models.User{
+		CreatedAt: time.Now(),
+	}
+	user.UnmarshalJSON(body)
+
+	id, err := h.storage.SaveUser(user)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	idJSON := idAsJSON(id)
+	w.Write(idJSON)
 }
 
 func (h Handler) AddChat(w http.ResponseWriter, r *http.Request) {

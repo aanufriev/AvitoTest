@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/aanufriev/AvitoTest/models"
 )
@@ -160,4 +161,57 @@ func (ps PostgresStorage) checkChat(chatID string) bool {
 	default:
 		panic(err)
 	}
+}
+
+func (ps PostgresStorage) GetChats(userID string) ([]models.Chat, error) {
+	if !ps.checkUser(userID) {
+		return nil, fmt.Errorf("SaveMessage error: User with id %v doesn`t exist", userID)
+	}
+
+	chatRows, err := ps.db.Query(
+		`SELECT * FROM chats
+		WHERE id=ANY(SELECT chat_id FROM userchat WHERE user_id=$1)
+		ORDER BY (SELECT created_at FROM messages WHERE chat_id=chats.id ORDER by created_at DESC LIMIT 1) DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetChats error: %s with user_id: %v", err, userID)
+	}
+	defer chatRows.Close()
+
+	chats := make([]models.Chat, 0)
+
+	for chatRows.Next() {
+		var chat models.Chat
+		err = chatRows.Scan(&chat.ID, &chat.Name, &chat.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("GetChats error: %s with chat: %v", err, chat)
+		}
+		chats = append(chats, chat)
+	}
+
+	for i, chat := range chats {
+		rows, err := ps.db.Query(
+			"SELECT user_id FROM userchat WHERE chat_id=$1",
+			chat.ID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("GetChats error: %s with chat_id: %v", err, chat.ID)
+		}
+		defer rows.Close()
+
+		ids := make([]string, 0)
+		for rows.Next() {
+			var id int
+			err = rows.Scan(&id)
+			if err != nil {
+				return nil, err
+			}
+			ids = append(ids, strconv.Itoa(id))
+		}
+
+		chats[i].Users = ids
+	}
+
+	return chats, nil
 }

@@ -55,11 +55,51 @@ func (h Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h Handler) AddChat(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+	defer r.Body.Close()
 
+	chat := &models.Chat{
+		CreatedAt: time.Now(),
+	}
+	chat.UnmarshalJSON(body)
+
+	id, err := h.storage.SaveChat(chat)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	idJSON := idAsJSON(id)
+	w.Write(idJSON)
 }
 
 func (h Handler) AddMessage(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+	defer r.Body.Close()
 
+	msg := &models.Message{
+		CreatedAt: time.Now(),
+	}
+	msg.UnmarshalJSON(body)
+
+	id, err := h.storage.SaveMessage(msg)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	idJSON := idAsJSON(id)
+	w.Write(idJSON)
 }
 
 func (h Handler) GetChats(w http.ResponseWriter, r *http.Request) {

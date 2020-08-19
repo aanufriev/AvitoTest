@@ -215,3 +215,31 @@ func (ps PostgresStorage) GetChats(userID string) ([]models.Chat, error) {
 
 	return chats, nil
 }
+
+func (ps PostgresStorage) GetMessages(chatID string) ([]models.Message, error) {
+	if !ps.checkChat(chatID) {
+		return nil, fmt.Errorf("GetMessage error: Chat with id %v doesn`t exist", chatID)
+	}
+
+	msgs := make([]models.Message, 0)
+
+	msgRows, err := ps.db.Query(
+		"SELECT * FROM messages WHERE chat_id=$1 ORDER BY created_at",
+		chatID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("GetMessages error: %s with chat_id: %v", err, chatID)
+	}
+	defer msgRows.Close()
+
+	for msgRows.Next() {
+		var msg models.Message
+		err = msgRows.Scan(&msg.ID, &msg.ChatID, &msg.AuthorID, &msg.Text, &msg.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("GetMessages error: %s with message: %v", err, msg)
+		}
+		msgs = append(msgs, msg)
+	}
+
+	return msgs, nil
+}

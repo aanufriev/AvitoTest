@@ -1,0 +1,26 @@
+version: "3"
+services:
+  database:
+    image:
+       postgres
+    ports:
+      - 5432:5432
+    volumes:
+      - database-data:/var/lib/postgresql/data/
+    environment:
+        POSTGRES_DB: avito
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: test_password
+
+  main:
+    build: .
+    command:
+        go run .
+    ports:
+      - "9000:9000"
+    links:
+        - database
+    depends_on:
+        - database
+volumes:
+  database-data:

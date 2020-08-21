@@ -13,6 +13,8 @@ const (
 	postgres = "postgres"
 )
 
+// StorageInterface is an interface work with
+// different databases and to make fake databases for testing
 type StorageInterface interface {
 	SaveUser(user *models.User) (int, error)
 	SaveChat(chat *models.Chat) (int, error)
@@ -21,10 +23,13 @@ type StorageInterface interface {
 	GetMessages(chatID string) ([]models.Message, error)
 }
 
+// PostgresStorage is implementation of StorageInterface
 type PostgresStorage struct {
 	db *sql.DB
 }
 
+// Open opens database by postgres driver
+// and driver-specified data source name
 func (ps *PostgresStorage) Open(dataSourceName string) error {
 	db, err := sql.Open(postgres, dataSourceName)
 	if err != nil {
@@ -40,6 +45,7 @@ func (ps *PostgresStorage) Open(dataSourceName string) error {
 	return nil
 }
 
+// InitDatabase creates tables if they don't exist
 func (ps PostgresStorage) InitDatabase() error {
 	file, err := ioutil.ReadFile("./storage/init.sql")
 	if err != nil {
@@ -53,6 +59,8 @@ func (ps PostgresStorage) InitDatabase() error {
 	return nil
 }
 
+// SaveUser saves a user with a unique
+// username in the table and returns his id
 func (ps PostgresStorage) SaveUser(user *models.User) (int, error) {
 	var lastID int
 
@@ -69,6 +77,8 @@ func (ps PostgresStorage) SaveUser(user *models.User) (int, error) {
 	return lastID, nil
 }
 
+// SaveChat saves a chat with a unique
+// name in the table and returns its id
 func (ps PostgresStorage) SaveChat(chat *models.Chat) (int, error) {
 	if len(chat.Users) < 2 {
 		return 0, fmt.Errorf("SaveChat error: Expect users count: > 2\nGot users count: %v", len(chat.Users))
@@ -122,6 +132,8 @@ func (ps PostgresStorage) checkUser(userID string) bool {
 	}
 }
 
+// SaveMessage saves a message
+// in the table and returns its id
 func (ps PostgresStorage) SaveMessage(msg *models.Message) (int, error) {
 	if !ps.checkUser(msg.AuthorID) {
 		return 0, fmt.Errorf("SaveMessage error: User with id %v doesn`t exist", msg.AuthorID)
@@ -163,6 +175,7 @@ func (ps PostgresStorage) checkChat(chatID string) bool {
 	}
 }
 
+// GetChats return all chats that user has
 func (ps PostgresStorage) GetChats(userID string) ([]models.Chat, error) {
 	if !ps.checkUser(userID) {
 		return nil, fmt.Errorf("SaveMessage error: User with id %v doesn`t exist", userID)
@@ -216,6 +229,7 @@ func (ps PostgresStorage) GetChats(userID string) ([]models.Chat, error) {
 	return chats, nil
 }
 
+// GetMessages return all messages from chat
 func (ps PostgresStorage) GetMessages(chatID string) ([]models.Message, error) {
 	if !ps.checkChat(chatID) {
 		return nil, fmt.Errorf("GetMessage error: Chat with id %v doesn`t exist", chatID)

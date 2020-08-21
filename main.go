@@ -27,10 +27,12 @@ func idAsJSON(id int) []byte {
 	return []byte(fmt.Sprintf(`{"id":"%v"}`, id))
 }
 
+// Handler processes user requests
 type Handler struct {
 	storage storage.StorageInterface
 }
 
+// AddUser creates a new user with unique username and returns id
 func (h Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -55,6 +57,7 @@ func (h Handler) AddUser(w http.ResponseWriter, r *http.Request) {
 	w.Write(idJSON)
 }
 
+// AddChat creates a new chat with 2 or more users. Has a unique name and returns id
 func (h Handler) AddChat(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -79,6 +82,7 @@ func (h Handler) AddChat(w http.ResponseWriter, r *http.Request) {
 	w.Write(idJSON)
 }
 
+// AddMessage creates a new message in chat and returns id
 func (h Handler) AddMessage(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -103,6 +107,8 @@ func (h Handler) AddMessage(w http.ResponseWriter, r *http.Request) {
 	w.Write(idJSON)
 }
 
+// GetChats returns all chats the user has.
+// Sorted by CreatedAt of the last message in chat (from the latest to earlies)
 func (h Handler) GetChats(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -147,6 +153,8 @@ func (h Handler) GetChats(w http.ResponseWriter, r *http.Request) {
 	w.Write(response)
 }
 
+// GetMessages returns all messages from chat
+// Sorted by CreatedAt of the message in chat (from the earlies to latest)
 func (h Handler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -155,25 +163,43 @@ func (h Handler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	msg := &models.Message{
-		CreatedAt: time.Now(),
-	}
-	msg.UnmarshalJSON(body)
+	var chatID map[string]interface{}
 
-	id, err := h.storage.SaveMessage(msg)
+	err = json.Unmarshal(body, &chatID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+	id, ok := chatID["chat"].(string)
+	if !ok {
+		writeError(w, http.StatusBadRequest, err, r.URL)
+		return
+	}
+
+	msgs, err := h.storage.GetMessages(id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err, r.URL)
 		return
 	}
 
+	response := make([]byte, 0)
+	for _, msg := range msgs {
+		msgJSON, err := msg.MarshalJSON()
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err, r.URL)
+			return
+		}
+		response = append(response, msgJSON...)
+	}
+
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	idJSON := idAsJSON(id)
-	w.Write(idJSON)
+	w.Write(response)
 }
 
 func main() {
 	storage := &storage.PostgresStorage{}
-	err := storage.Open("host=127.0.0.1 user=testuser password=test_password dbname=avito sslmode=disable")
+	err := storage.Open("host=database user=testuser password=test_password dbname=avito sslmode=disable")
 	if err != nil {
 		log.Fatal("can't open database connection: ", err)
 	}
@@ -183,7 +209,9 @@ func main() {
 		log.Fatal("can't init database: ", err)
 	}
 
-	handler := &Handler{}
+	handler := &Handler{
+		storage,
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/users/add", handler.AddUser)

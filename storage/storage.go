@@ -47,7 +47,7 @@ func (ps *PostgresStorage) Open(dataSourceName string) error {
 
 // InitDatabase creates tables if they don't exist
 func (ps PostgresStorage) InitDatabase() error {
-	file, err := ioutil.ReadFile("./storage/init.sql")
+	file, err := ioutil.ReadFile("storage/init.sql")
 	if err != nil {
 		return err
 	}
